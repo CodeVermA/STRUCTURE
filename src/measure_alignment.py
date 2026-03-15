@@ -138,7 +138,7 @@ def compute_alignment(x_feat_paths, y_feat_paths, metric, topk, precise=True):
     for i, x_fp in enumerate(x_feat_paths):
         all_data = torch.load(x_fp, map_location="cpu")
         x_feats = prepare_features(
-            all_data["feats"].float(),
+            all_data["feats"][:5000].float(), # only use a random subset of 5,000 paired samples
             exact=precise,
         )
         x_num_params = all_data["num_params"]
@@ -155,7 +155,7 @@ def compute_alignment(x_feat_paths, y_feat_paths, metric, topk, precise=True):
                     continue
 
             y_feats = prepare_features(
-                torch.load(y_fp, map_location="cuda:0")["feats"].float(),
+                torch.load(y_fp, map_location="cuda:0")["feats"][:5000].float(),
                 exact=precise,
             )
             y_num_params = torch.load(y_fp, map_location="cpu")["num_params"]
@@ -286,10 +286,7 @@ if __name__ == "__main__":
         print(f"alignment already exists at {save_path}")
         exit()
 
-    llm_models, lvm_models = get_models(
-        args.modelset,
-        modality="all",
-    )
+    llm_models, lvm_models = ["roberta-base"], ["vit_base_patch14_dinov2.lvd142m"] #get_models(args.modelset, modality="all",)
     if args.modality_x == "language":
         models_x = llm_models
     elif args.modality_x == "vision":
@@ -312,6 +309,7 @@ if __name__ == "__main__":
             m,
             args.pool_x,
             args.prompt_x,
+            caption_idx=0 if args.modality_x == "language" else None,
         )
         for m in models_x
     ]
@@ -323,6 +321,7 @@ if __name__ == "__main__":
             m,
             args.pool_y,
             args.prompt_y,
+            caption_idx=0 if args.modality_y == "language" else None,
         )
         for m in models_y
     ]

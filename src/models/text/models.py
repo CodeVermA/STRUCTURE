@@ -66,7 +66,7 @@ def load_llm(llm_model_path, qlora=False, force_download=False, from_init=False)
             quantization_config=quantization_config,
             torch_dtype=torch_dtype,
             force_download=force_download,
-            return_dict_in_generate=True,
+            # return_dict_in_generate=True, # this is not needed for feature extraction, only for generation. keeping it False to save memory.
             output_hidden_states=True,
             cache_dir="HuggingFaceCache/",
             trust_remote_code=True,

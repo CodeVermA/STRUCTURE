@@ -293,3 +293,5 @@ notebooks/tmp_models
 .python-version
 HuggingFaceCache/
 results/
+*.pt
+*.safetensors

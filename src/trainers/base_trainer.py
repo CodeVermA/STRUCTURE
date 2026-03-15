@@ -55,7 +55,7 @@ class Trainer(ABC, object):
                 )
                 run_name = f"{experiment_name}-{wandb.run.name}"
                 wandb.run.name = run_name
-                wandb.run.save()
+                # wandb.run.save() # W&B automatically saves and syncs all training metrics
             self.run_dir = Path(wandb.run.dir)
         else:
             current_directory = self.config.get("work_dir", os.getcwd())

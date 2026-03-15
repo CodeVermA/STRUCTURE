@@ -11,8 +11,43 @@ from torchvision.models.feature_extraction import create_feature_extractor
 from tqdm import trange
 
 import src.utils.alignment_utils as utils
-from src.models.tasks import get_models
+# from src.models.tasks import get_models
 from src.models.text.models import load_llm, load_tokenizer
+
+import json
+from pathlib import Path
+from PIL import Image
+
+
+class COCODataset:
+    def __init__(self, img_dir, ann_file):
+        self.img_dir = Path(img_dir)
+        with open(ann_file) as f:
+            coco = json.load(f)
+        
+        # Map image_id -> file_name
+        id_to_file = {img["id"]: img["file_name"] for img in coco["images"]}
+        
+        # Group captions by image_id
+        captions = {}
+        for ann in coco["annotations"]:
+            captions.setdefault(ann["image_id"], []).append(ann["caption"])
+        
+        # Build flat list of {image_id, captions}
+        self.samples = [
+            {"image_id": iid, "file_name": id_to_file[iid], "text": caps}
+            for iid, caps in captions.items()
+            if iid in id_to_file
+        ]
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        s = self.samples[idx]
+        image = Image.open(self.img_dir / s["file_name"]).convert("RGB")
+        return {"image": image, "text": s["text"]}
+
 
 
 def extract_llm_features(filenames, dataset, args):
@@ -189,7 +224,7 @@ def extract_lvm_features(filenames, dataset, args):
                 ims = torch.stack(
                     [
                         transform(dataset[j]["image"])
-                        for j in range(i, i + args.batch_size)
+                        for j in range(i, min(i + args.batch_size, len(dataset)))
                     ]
                 ).cuda()
                 lvm_output = vision_model(ims)
@@ -228,6 +263,7 @@ def extract_lvm_features(filenames, dataset, args):
         gc.collect()
 
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--force_download", action="store_true")
@@ -250,20 +286,28 @@ if __name__ == "__main__":
     if args.qlora:
         print("QLoRA is set to True. The alignment score will be slightly off.")
 
-    llm_models, lvm_models = get_models(args.modelset, modality=args.modality)
+    llm_models, lvm_models = ["roberta-base"], ["vit_base_patch14_dinov2.lvd142m"] #get_models(args.modelset, modality=args.modality)
 
     # load dataset once outside
-    dataset = load_dataset(
-        args.dataset,
-        revision=args.subset,
-        split="train",
-        cache_dir="HuggingFaceCache/",
+    # dataset = load_dataset(
+    #     args.dataset,
+    #     revision=args.subset,
+    #     split="train",
+    #     cache_dir="HuggingFaceCache/",
+    # )
+
+    print("Loading dataset...")
+    dataset = COCODataset(
+        img_dir="/home/vasu-verma/STRUCTURE/data/coco/train2014",
+        ann_file="/home/vasu-verma/STRUCTURE/data/coco/annotations/captions_train2014.json",
     )
 
+    print("Extracting LLM features...")
     if args.modality in ["all", "language"]:
         # extract all language model features
         extract_llm_features(llm_models, dataset, args)
 
+    print("Extracting LVM features...")
     if args.modality in ["all", "vision"]:
         # extract all vision model features
         extract_lvm_features(lvm_models, dataset, args)
