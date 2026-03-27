@@ -50,7 +50,7 @@ def load_llm(llm_model_path, qlora=False, force_download=False, from_init=False)
             force_download=force_download,
             return_dict_in_generate=True,
             output_hidden_states=True,
-            cache_dir="HuggingFaceCache/",
+            # cache_dir="HuggingFaceCache/",
             trust_remote_code=True,
         )
         language_model = AutoModel.from_config(config)
@@ -68,7 +68,7 @@ def load_llm(llm_model_path, qlora=False, force_download=False, from_init=False)
             force_download=force_download,
             # return_dict_in_generate=True, # this is not needed for feature extraction, only for generation. keeping it False to save memory.
             output_hidden_states=True,
-            cache_dir="HuggingFaceCache/",
+            # cache_dir="HuggingFaceCache/",
             trust_remote_code=True,
         ).eval()
 
@@ -79,7 +79,7 @@ def load_tokenizer(llm_model_path):
     """Set up tokenizer. if your tokenizer needs special settings edit here."""
     tokenizer = AutoTokenizer.from_pretrained(
         llm_model_path,
-        cache_dir="HuggingFaceCache/",
+        # cache_dir="HuggingFaceCache/",
     )
 
     if "huggyllama" in llm_model_path:

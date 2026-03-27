@@ -33,7 +33,7 @@ def retrieval_metrics_df(
     image_column: str = "image_name",
     k_values: List[int] = [1, 5, 10],
     batch_size: int = 64,
-) -> Dict[str, float]:
+    ) -> Dict[str, float]:
     """Recall@k, Precision@k and MAP@k for image→text retrieval."""
     image_embeds = safe_normalize(image_embeds, p=2, dim=1)
     text_embeds = safe_normalize(text_embeds, p=2, dim=1)

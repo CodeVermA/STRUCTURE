@@ -23,7 +23,7 @@ def load_dataset(
     label_templates: List[str] = ["a photo of a {label}"],
     template_key: str = "label",
     precompute_captions: bool = True,
-):
+    ):
     transform = transforms.Compose(
         [
             transforms.Resize((256, 256)),
