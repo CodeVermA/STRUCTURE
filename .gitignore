@@ -305,3 +305,5 @@ assets/*.pickle
 notebooks/*.jpg
 notebooks/checkpoints
 notebooks/tmp_models
+sbatch_runs/
+scripts/
