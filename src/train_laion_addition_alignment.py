@@ -42,6 +42,10 @@ if __name__ == "__main__":
         num_workers=config["features"]["num_workers"],
         label_templates=config["features"]["label_templates"],
         template_key=config["features"]["template_key"],
+        precompute_captions=config["features"]["precompute_captions"],
+        subsampled_data_path=config["paths"].get("subsampled_data_path"),
+        subsampled_dataset_file=config["features"].get("subsampled_dataset_file"),
+        subsampled_val_dataset_file=config["features"].get("subsampled_val_dataset_file"),
     )
 
     # our evaluation datasets

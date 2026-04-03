@@ -1,11 +1,14 @@
 import argparse
+import json
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
+import pandas as pd
 import torchvision.transforms as transforms
 import yaml
 from loguru import logger
-from torch.utils.data import DataLoader
+from PIL import Image
+from torch.utils.data import DataLoader, Dataset
 
 from src.core.src.datasets.image_text_dataset import ImageTextDataset
 from src.core.src.utils.loader import Loader, merge_dicts
@@ -13,6 +16,142 @@ from src.dataset_preparation.data_utils import get_datasets, get_default_transfo
 from src.trainers.alignment_trainer import AlignmentTrainer
 from src.trainers.clip_eval_trainer import CLIPEvalTrainer
 from src.trainers.csa_trainer import CSATrainer
+
+
+class SubsampledImageTextDataset(Dataset):
+    def __init__(
+        self,
+        dataset_file: Path,
+        transform=None,
+    ):
+        super().__init__()
+        self.dataset_file = Path(dataset_file)
+        with open(self.dataset_file, "r") as f:
+            records = json.load(f)
+
+        self.df = pd.DataFrame(records)
+        missing_columns = {"image_path", "text"} - set(self.df.columns)
+        if missing_columns:
+            missing_columns = ", ".join(sorted(missing_columns))
+            raise ValueError(
+                f"Subsampled dataset '{self.dataset_file}' is missing required columns: {missing_columns}"
+            )
+
+        self.df = self.df.rename(columns={"text": "captions"})
+        if "label" not in self.df.columns:
+            self.df["label"] = None
+        self.df["image_path"] = self.df["image_path"].astype(str)
+
+        self.transform = transform
+        self.name = self.dataset_file.stem
+        self.tokenizer = None
+        self.tokens = None
+
+    def apply_tokenizer(self) -> None:
+        if self.tokenizer:
+            self.tokens = self.tokenizer(
+                list(self.df["captions"].values),
+                padding="longest",
+                return_tensors="pt",
+            )
+
+    def __len__(self):
+        return len(self.df)
+
+    def __getitem__(self, index):
+        row = self.df.iloc[index]
+        with Image.open(row["image_path"]) as image:
+            image = image.convert("RGB")
+        if self.transform is not None:
+            image = self.transform(image)
+
+        if self.tokenizer:
+            caption = {k: v[index] for (k, v) in self.tokens.items()}
+            return image, caption
+        return image, row["captions"]
+
+
+def _get_subsampled_search_dirs(
+    data_path: Path,
+    subsampled_data_path: Optional[Path] = None,
+) -> List[Path]:
+    if subsampled_data_path is not None:
+        return [Path(subsampled_data_path)]
+
+    search_dirs = [data_path / "subsampled", data_path.parent / "subsampled"]
+    unique_dirs = []
+    for directory in search_dirs:
+        if directory not in unique_dirs:
+            unique_dirs.append(directory)
+    return unique_dirs
+
+
+def _get_subsampled_sample_count(dataset_file: Path) -> int:
+    suffix = dataset_file.stem.rsplit("_", 1)[-1]
+    return int(suffix) if suffix.isdigit() else -1
+
+
+def resolve_subsampled_dataset_file(
+    dataset_name: str,
+    data_path: Path,
+    subsampled_data_path: Optional[Path] = None,
+    subsampled_dataset_file: Optional[str] = None,
+) -> Optional[Path]:
+    search_dirs = _get_subsampled_search_dirs(
+        data_path=data_path,
+        subsampled_data_path=subsampled_data_path,
+    )
+
+    if subsampled_dataset_file is not None:
+        return resolve_subsampled_dataset_path(
+            dataset_file=subsampled_dataset_file,
+            data_path=data_path,
+            subsampled_data_path=subsampled_data_path,
+        )
+
+    candidates = []
+    for search_dir in search_dirs:
+        candidates.extend(search_dir.glob(f"{dataset_name}_*.json"))
+    if not candidates:
+        return None
+
+    candidates = sorted(
+        set(candidates),
+        key=lambda path: (_get_subsampled_sample_count(path), path.name),
+    )
+    selected_file = candidates[-1]
+    if len(candidates) > 1:
+        logger.info(
+            f"Found multiple subsampled datasets for '{dataset_name}', using '{selected_file.name}'."
+        )
+    return selected_file
+
+
+def resolve_subsampled_dataset_path(
+    dataset_file: str,
+    data_path: Path,
+    subsampled_data_path: Optional[Path] = None,
+) -> Path:
+    search_dirs = _get_subsampled_search_dirs(
+        data_path=data_path,
+        subsampled_data_path=subsampled_data_path,
+    )
+
+    dataset_path = Path(dataset_file)
+    if dataset_path.is_absolute():
+        if not dataset_path.exists():
+            raise ValueError(f"Unable to find subsampled dataset file: {dataset_path}")
+        return dataset_path
+
+    for search_dir in search_dirs:
+        candidate = search_dir / dataset_path
+        if candidate.exists():
+            return candidate
+
+    searched_dirs = ", ".join(str(path) for path in search_dirs)
+    raise ValueError(
+        f"Unable to find subsampled dataset file '{dataset_path}' in: {searched_dirs}"
+    )
 
 
 def load_dataset(
@@ -23,7 +162,10 @@ def load_dataset(
     label_templates: List[str] = ["a photo of a {label}"],
     template_key: str = "label",
     precompute_captions: bool = True,
-    ):
+    subsampled_data_path: Optional[Path] = None,
+    subsampled_dataset_file: Optional[str] = None,
+    subsampled_val_dataset_file: Optional[str] = None,
+):
     transform = transforms.Compose(
         [
             transforms.Resize((256, 256)),
@@ -33,27 +175,70 @@ def load_dataset(
         ]
     )
 
-    train_dataset, val_dataset = get_datasets(
-        dataset=dataset_name,
-        transform=transform,
-        root_dir=data_path,
+    subsampled_dataset_path = resolve_subsampled_dataset_file(
+        dataset_name=dataset_name,
+        data_path=data_path,
+        subsampled_data_path=subsampled_data_path,
+        subsampled_dataset_file=subsampled_dataset_file,
     )
+    subsampled_val_dataset_path = None
+    if subsampled_val_dataset_file is not None:
+        subsampled_val_dataset_path = resolve_subsampled_dataset_path(
+            dataset_file=subsampled_val_dataset_file,
+            data_path=data_path,
+            subsampled_data_path=subsampled_data_path,
+        )
 
-    if dataset_name != "coco" and dataset_name != "flickr30":
-        train_dataset = ImageTextDataset(
-            dataset=train_dataset,
-            label_templates=label_templates,
-            template_key=template_key,
-            precompute_captions=precompute_captions,
+    if subsampled_dataset_path is not None:
+        logger.info(f"Using subsampled training data from '{subsampled_dataset_path}'.")
+        train_dataset = SubsampledImageTextDataset(
+            dataset_file=subsampled_dataset_path,
+            transform=transform,
         )
-        val_dataset = ImageTextDataset(
-            dataset=val_dataset,
-            label_templates=label_templates,
-            template_key=template_key,
-            precompute_captions=precompute_captions,
+        if subsampled_val_dataset_path is not None:
+            logger.info(
+                f"Using subsampled validation data from '{subsampled_val_dataset_path}'."
+            )
+            val_dataset = SubsampledImageTextDataset(
+                dataset_file=subsampled_val_dataset_path,
+                transform=transform,
+            )
+        else:
+            _, val_dataset = get_datasets(
+                dataset=dataset_name,
+                transform=transform,
+                root_dir=data_path,
+            )
+            if dataset_name != "coco" and dataset_name != "flickr30":
+                val_dataset = ImageTextDataset(
+                    dataset=val_dataset,
+                    label_templates=label_templates,
+                    template_key=template_key,
+                    precompute_captions=precompute_captions,
+                )
+                val_dataset.name = dataset_name
+    else:
+        train_dataset, val_dataset = get_datasets(
+            dataset=dataset_name,
+            transform=transform,
+            root_dir=data_path,
         )
-        train_dataset.name = dataset_name
-        val_dataset.name = dataset_name
+
+        if dataset_name != "coco" and dataset_name != "flickr30":
+            train_dataset = ImageTextDataset(
+                dataset=train_dataset,
+                label_templates=label_templates,
+                template_key=template_key,
+                precompute_captions=precompute_captions,
+            )
+            val_dataset = ImageTextDataset(
+                dataset=val_dataset,
+                label_templates=label_templates,
+                template_key=template_key,
+                precompute_captions=precompute_captions,
+            )
+            train_dataset.name = dataset_name
+            val_dataset.name = dataset_name
 
     # since we're purely using the train dataset
     # for obtaining the embeddings we don't need to shuffle
@@ -113,6 +298,9 @@ if __name__ == "__main__":
         label_templates=config["features"]["label_templates"],
         template_key=config["features"]["template_key"],
         precompute_captions=config["features"]["precompute_captions"],
+        subsampled_data_path=config["paths"].get("subsampled_data_path"),
+        subsampled_dataset_file=config["features"].get("subsampled_dataset_file"),
+        subsampled_val_dataset_file=config["features"].get("subsampled_val_dataset_file"),
     )
 
     # additional unimodal data
@@ -187,12 +375,10 @@ if __name__ == "__main__":
                     root_dir=data_path,
                 )
                 l_data.append((dataset_name, ds_val))
-                logger.info(
-                    f"Successfully loaded '{dataset_name}', test size: {len(ds_val)}"
-                )
+                logger.info(f"Successfully loaded '{dataset_name}', test size: {len(ds_val)}")
             except Exception as e:
-                logger.error(f"Error on {dataset_name}: {e}")
-
+                print(f"Error on {dataset_name}: {e}")
+    
     trainer_kwargs = {
         "config": config,
         "train_dataset": train_dataset,

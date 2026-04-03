@@ -511,24 +511,28 @@ class AlignmentTrainer(Trainer):
         self.text_features_val = text_features_val
         self.text_features_train = text_features_train
 
-        if (
-            self.config["training"]["drop_duplicates"]
-            and hasattr(self.train_dataset.dataset, "df")
-            and "image_path" in self.train_dataset.dataset.df.columns
-        ):
-            sel_train_indices = (
-                self.train_dataset.dataset.df.groupby("image_path").cumcount()
-                < self.config["training"]["n_dup_samples"]
-            )
-            image_features_train = image_features_train[sel_train_indices]
-            text_features_train = text_features_train[sel_train_indices]
+        if self.config["training"]["drop_duplicates"]:
+            if (
+                hasattr(self.train_dataset.dataset, "df")
+                and "image_path" in self.train_dataset.dataset.df.columns
+            ):
+                sel_train_indices = (
+                    self.train_dataset.dataset.df.groupby("image_path").cumcount()
+                    < self.config["training"]["n_dup_samples"]
+                )
+                image_features_train = image_features_train[sel_train_indices]
+                text_features_train = text_features_train[sel_train_indices]
 
-            sel_val_indices = (
-                self.val_dataset.dataset.df.groupby("image_path").cumcount()
-                < self.config["training"]["n_dup_samples"]
-            )
-            image_features_val = image_features_val[sel_val_indices]
-            text_features_val = text_features_val[sel_val_indices]
+            if (
+                hasattr(self.val_dataset.dataset, "df")
+                and "image_path" in self.val_dataset.dataset.df.columns
+            ):
+                sel_val_indices = (
+                    self.val_dataset.dataset.df.groupby("image_path").cumcount()
+                    < self.config["training"]["n_dup_samples"]
+                )
+                image_features_val = image_features_val[sel_val_indices]
+                text_features_val = text_features_val[sel_val_indices]
 
         if (
             n_random_subsample_train is not None

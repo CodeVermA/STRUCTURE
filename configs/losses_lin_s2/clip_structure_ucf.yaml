@@ -23,19 +23,11 @@ overrides:
         data_path: "./data/processed"
 
     features:
-        dataset: "aircraft"
-        subsampled_dataset_file: "aircraft_3500.json"
+        dataset: "ucf101"
+        subsampled_dataset_file: "ucf101_3600.json"
         batch_size: 64
         num_workers: 2
-
-    alignment:
-        llm_model_name: "roberta-base"
-        lvm_model_name: "vit_base_patch14_dinov2.lvd142m"
 
     evaluation:
         batch_size: 64
         num_workers: 2
-        zero_shot_datasets:
-            - "aircraft"
-        retrieval_datasets: []
-

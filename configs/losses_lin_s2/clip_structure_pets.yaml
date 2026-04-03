@@ -1,19 +1,6 @@
 defaults: !include ../default.yaml
 
 overrides:
-    features:
-        dataset: "aircraft"
-        subsampled_dataset_file: "aircraft_3500.json"
-        batch_size: 64
-        num_workers: 2
-
-    paths:
-        data_path: "./data/processed"
-    
-    alignment:
-        llm_model_name: "roberta-base"
-        lvm_model_name: "vit_base_patch14_dinov2.lvd142m"
-
     training:
         batch_size: 256
 
@@ -28,14 +15,20 @@ overrides:
 
             warmup_steps: 1000
             structure_lambda: 10.0
-            structure_levels: 1
+            structure_levels: 2
             structure_margin: 0.0
-            structure_weighting: "none"
+            structure_weighting: "inverse"
+
+    paths:
+        data_path: "./data/processed"
+
+    features:
+        dataset: "pets"
+        subsampled_dataset_file: "pets_3591.json"
+        batch_size: 64
+        num_workers: 2
 
     evaluation:
         batch_size: 64
         num_workers: 2
-        zero_shot_datasets:
-            - "aircraft"
-        retrieval_datasets: []
 

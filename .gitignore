@@ -267,31 +267,41 @@ tags
 
 # End of https://www.toptal.com/developers/gitignore/api/vim,pycharm+all,python,jupyternotebooks
 
+# Local editor settings
+.vscode/
+
+# Generated datasets and experiment artifacts
 data/*
+results/
 wandb/*
 */wandb/*
+
+# Model checkpoints and large binaries
 *.ftz
 *.ftz.*
 *.model
 *.model.*
 *.bin
-*.gz
+*.pt
+*.safetensors
 *.vec
-*.xlsx
+*.dat
+
+# Archives and export bundles
+*.gz
 *.zip
+*.xlsx
+
+# Misc generated files
 .DS_Store
 *.html
 .vim
 report.xml
-notebooks/*.jpg
+.python-version
+HuggingFaceCache/
 assets/outputs
 assets/notebook_outputs
 assets/*.pickle
-*.dat
+notebooks/*.jpg
 notebooks/checkpoints
 notebooks/tmp_models
-.python-version
-HuggingFaceCache/
-results/
-*.pt
-*.safetensors

@@ -11,31 +11,22 @@ overrides:
         clip_loss_name: "CLIPLoss"
         clip_loss:
             temperature: 0.05
-            normalize_latents: true
+            structure_lambda: 0
 
-            warmup_steps: 1000
-            structure_lambda: 10.0
-            structure_levels: 2
-            structure_margin: 0.0
-            structure_weighting: "inverse"
+    layer_selection:
+        best_only: true
+        last_only: false
 
     paths:
         data_path: "./data/processed"
 
     features:
         dataset: "aircraft"
-        subsampled_dataset_file: "aircraft_3500.json"
+        subsampled_dataset_file: "aircraft_3600.json"
+        subsampled_val_dataset_file: "aircraft_val_3067.json"
         batch_size: 64
         num_workers: 2
-
-    alignment:
-        llm_model_name: "roberta-base"
-        lvm_model_name: "vit_base_patch14_dinov2.lvd142m"
 
     evaluation:
         batch_size: 64
         num_workers: 2
-        zero_shot_datasets:
-            - "aircraft"
-        retrieval_datasets: []
-

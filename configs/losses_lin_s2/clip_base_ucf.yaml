@@ -1,0 +1,31 @@
+defaults: !include ../default.yaml
+
+overrides:
+    training:
+        batch_size: 256
+
+        alignment_layer_name: "LinearAlignmentLayer"
+        alignment_layer_kwargs:
+            dim_alignment: 512
+
+        clip_loss_name: "CLIPLoss"
+        clip_loss:
+            temperature: 0.05
+            structure_lambda: 0
+
+    layer_selection:
+        best_only: true
+        last_only: false
+
+    paths:
+        data_path: "./data/processed"
+
+    features:
+        dataset: "ucf101"
+        subsampled_dataset_file: "ucf101_3600.json"
+        batch_size: 64
+        num_workers: 2
+
+    evaluation:
+        batch_size: 64
+        num_workers: 2

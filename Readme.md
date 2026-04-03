@@ -18,6 +18,18 @@ However, existing models typically rely on millions of paired multimodal samples
 In this work, we explore the feasibility of building multimodal models with **limited amounts of paired data** by aligning pretrained unimodal foundation models.
 We show that high-quality alignment is possible with as few as **tens of thousands of paired samples** — less than 1% of the data typically used in the field.
 
+## Coursework Extensions
+
+This fork contains coursework-specific additions for training and evaluation on smaller custom subsets:
+
+- preprocessing code for synthetic image-text generation from class-label datasets
+- single-frame extraction for video datasets such as UCF101 and Kinetics-700
+- subsampling scripts for Aircraft, Pets, UCF101, and COCO
+- dataset-specific training scripts and configs for base and STRUCTURE runs
+- utilities for collecting result tables and generating report figures
+
+The repository is configured so that large raw datasets, processed datasets, cached features, offline W\&B runs, and other generated experiment artifacts are ignored by Git. This keeps the GitHub upload focused on source code, configs, and lightweight project files.
+
 ## Key Contributions
 
 - **STRUCTURE Regularization**: An effective technique that preserves the neighborhood geometry of the latent space of unimodal encoders
@@ -57,6 +69,14 @@ Prepare your datasets using the provided scripts. For example, for COCO:
 ```
 
 For other datasets, see the `src/dataset_preparation/` directory for preparation scripts.
+
+To create the coursework subsampled datasets used in the experiments:
+
+```bash
+python sample_subset.py
+python sample_coco_subset.py --split train
+python sample_coco_subset.py --split val
+```
 
 ### 2. Training
 
