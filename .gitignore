@@ -275,6 +275,7 @@ data/*
 results/
 wandb/*
 */wandb/*
+scripts/
 
 # Model checkpoints and large binaries
 *.ftz
@@ -306,4 +307,4 @@ notebooks/*.jpg
 notebooks/checkpoints
 notebooks/tmp_models
 sbatch_runs/
-scripts/
+scripts/*
