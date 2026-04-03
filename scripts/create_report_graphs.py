@@ -155,9 +155,15 @@ def infer_source_dataset(path: Path) -> str:
     return path.name.split("_", 1)[0]
 
 
+def is_generated_summary_table(path: Path) -> bool:
+    return path.name == "all_result_tables.tex" or path.name.startswith("ablation_style_")
+
+
 def load_accuracy_tables(directory: Path, method: str, metric_kind: str) -> pd.DataFrame:
     records: list[dict[str, object]] = []
     for path in sorted(directory.glob(f"*_{metric_kind}.tex")):
+        if is_generated_summary_table(path):
+            continue
         source_dataset = infer_source_dataset(path)
         row = parse_latex_table(path)
         for metric_name, value in row.items():
@@ -178,6 +184,8 @@ def load_accuracy_tables(directory: Path, method: str, metric_kind: str) -> pd.D
 def load_loss_tables(directory: Path, method: str) -> pd.DataFrame:
     records: list[dict[str, object]] = []
     for path in sorted(directory.glob("*.tex")):
+        if is_generated_summary_table(path):
+            continue
         if any(
             path.name.endswith(suffix)
             for suffix in ("_top1_acc_micro.tex", "_top1_acc_macro.tex")
